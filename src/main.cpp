@@ -7,11 +7,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
+#include <cmath>
 
 #include "v5.h"
 #include "v5_vcs.h"
 #include "holodrive.h"
+#include "threedee.h"
 
 using namespace vex;
 
@@ -45,23 +46,25 @@ typedef struct _button {
 
 int autonomousSelection = 0;
 
-int checkAutonomousType(int type) { // Check if button is pressed
+bool checkAutonomousType(int type) { // Check if button is pressed
     return (autonomousSelection & type) > 0;
 }
+
+bool canSelectAuton = true;
 
 // Button array definitions for each software button. The purpose of each button data structure
 // is defined above.  The array size can be extended, so you can have as many buttons as you
 // wish as long as it fits.
 button buttons[] = {
 //  {    X,   Y,  W,  H,  state, offColor, onColor,  offLabel, onLabel }
-    {   30,  30, 60, 60,  false, 0xEE0000, 0x0000EE, "Red",    "Blue" },
-    {  150,  30, 60, 60,  false, 0x00FF66, 0xFFBB00, "Front",  "Back" },
-    {  270,  30, 60, 60,  false, 0x40FF66, 0xFFBB00, "Main",   "Alt" },
-    {  390,  30, 60, 60,  false, 0x909090, 0x00FF66, "Comp.",  "Skills" },
-    {   30, 150, 60, 60,  false, 0x909090, 0x00FF66, "5-",     "8-" },
-    {  150, 150, 60, 60,  false, 0x909090, 0x00FF66, "6-",     "7-" },
-    {  270, 150, 60, 60,  false, 0x909090, 0x00FF66, "7-",     "5-" },
-    {  390, 150, 60, 60,  false, 0x909090, 0x00FF66, "8-",     "6-" }
+    {   30,  30, 60, 60,  false, 0xee0000, 0x0000ee, "Red",    "Blue" },
+    {  150,  30, 60, 60,  false, 0x00ff66, 0xffbb00, "Front",  "Back" },
+    {  270,  30, 60, 60,  false, 0x40ff66, 0xffbb00, "Main",   "Alt" },
+    {  390,  30, 60, 60,  false, 0x909090, 0x00ff66, "Comp.",  "Skills" },
+    {   30, 150, 60, 60,  false, 0x909090, 0x00ff66, "5-",     "8-" },
+    {  150, 150, 60, 60,  false, 0x909090, 0x00ff66, "6-",     "7-" },
+    {  270, 150, 60, 60,  false, 0x909090, 0x00ff66, "7-",     "5-" },
+    {  390, 150, 60, 60,  false, 0x909090, 0x00ff66, "8-",     "6-" }
 };
 
 // forward ref
@@ -104,14 +107,15 @@ initButtons() {
 /*-----------------------------------------------------------------------------*/
 void
 userTouchCallbackPressed() {
+    if (!canSelectAuton) return;
+
     int index;
     int xpos = Brain.Screen.xPosition();
     int ypos = Brain.Screen.yPosition();
 
-    if( (index = findButton(xpos, ypos)) >= 0 ) {
+    if ((index = findButton(xpos, ypos)) >= 0) {
         displayButtonControls(index, true);
     }
-
 }
 
 /*-----------------------------------------------------------------------------*/
@@ -119,11 +123,13 @@ userTouchCallbackPressed() {
 /*-----------------------------------------------------------------------------*/
 void
 userTouchCallbackReleased() {
+    if (!canSelectAuton) return;
+
     int index;
     int xpos = Brain.Screen.xPosition();
     int ypos = Brain.Screen.yPosition();
 
-    if( (index = findButton(xpos, ypos)) >= 0 ) {
+    if ((index = findButton(xpos, ypos)) >= 0) {
         // clear all buttons to false, ie. unselected
         //      initButtons();
 
@@ -184,82 +190,6 @@ displayButtonControls( int index, bool pressed ) {
     }
 }
 
-/*
- * Autonomous helper functions
- */
-
-/*
-void turnRightMotor(int rotations, int speed) {
-    RightMotor.startRotateTo(rotations, rotationUnits::deg, speed, velocityUnits::pct);
-    RightMotor2.startRotateTo(rotations, rotationUnits::deg, speed, velocityUnits::pct);
-}
-
-void turnLeftMotor(int rotations, int speed) {
-    LeftMotor.startRotateTo(rotations, rotationUnits::deg, speed, velocityUnits::pct);
-    LeftMotor2.startRotateTo(rotations, rotationUnits::deg, speed, velocityUnits::pct);
-}
-
-void setRightMotorSpeed(int speed) {
-    if (speed) {
-        RightMotor.spin(vex::directionType::fwd,speed,vex::velocityUnits::pct);
-        RightMotor2.spin(vex::directionType::fwd,speed,vex::velocityUnits::pct);
-    } else {
-        RightMotor.stop();
-        RightMotor2.stop();
-    }
-}
-
-void setLeftMotorSpeed(int speed) {
-    if (speed) {
-        LeftMotor.spin(vex::directionType::fwd,speed,vex::velocityUnits::pct);
-        LeftMotor2.spin(vex::directionType::fwd,speed,vex::velocityUnits::pct);
-    } else {
-        LeftMotor.stop();
-        LeftMotor2.stop();
-    }
-}
-
-int sgn(int x) {
-    if (x >= 0) return 1;
-    else return -1;
-}
-
-// Converts distance in inches
-int converter(int distancecalc) {
-    return distancecalc / (4 * 3.141592653) * 360;
-}
-
-// Default drive speed
-int driveSpeed = 65;
-
-// Default turn speed
-int turnSpeed = 55;
-
-// Drive the robot forward a certain amount of inches. Speed is optional
-void driveInches(int inches, int speed) {
-    LeftMotor.startRotateFor(converter(inches), rotationUnits::deg, speed, velocityUnits::pct);
-    RightMotor.startRotateFor(converter(inches), rotationUnits::deg, speed, velocityUnits::pct);
-    LeftMotor2.startRotateFor(converter(inches), rotationUnits::deg, speed, velocityUnits::pct);
-    RightMotor2.rotateFor(converter(inches), rotationUnits::deg, speed, velocityUnits::pct);
-}
-
-void driveInches(int inches) {
-    driveInches(inches, driveSpeed);
-}
-
-// Turn the robot a certain amount of degrees. Speed is optional
-void turnDegrees(int dist, int speed) {
-    LeftMotor.startRotateFor(dist * 4, rotationUnits::deg, speed, velocityUnits::pct);
-    RightMotor.startRotateFor(-dist * 4, rotationUnits::deg, speed, velocityUnits::pct);
-    LeftMotor2.startRotateFor(dist * 4, rotationUnits::deg, speed, velocityUnits::pct);
-    RightMotor2.rotateFor(-dist * 4, rotationUnits::deg, speed, velocityUnits::pct);
-}
-
-void turnDegrees(int dist) {
-    turnDegrees(dist, turnSpeed);
-}
-*/
-
 /*---------------------------------------------------------------------------*/
 /*                          Pre-Autonomous Functions                         */
 /*                                                                           */
@@ -270,6 +200,10 @@ void turnDegrees(int dist) {
 /*  not every time that the robot is disabled.                               */
 /*---------------------------------------------------------------------------*/
 void preAuton(void) {
+    /*FrontLeftMotor.setStopping(vex::brakeType::hold);
+    FrontRightMotor.setStopping(vex::brakeType::hold);
+    BackLeftMotor.setStopping(vex::brakeType::hold);
+    BackRightMotor.setStopping(vex::brakeType::hold);*/
     LiftMotor.setStopping(vex::brakeType::hold);
     GrabMotor.setStopping(vex::brakeType::hold);
 }
@@ -284,7 +218,44 @@ void preAuton(void) {
 /*  You must modify the code to add your own robot specific commands here.   */
 /*---------------------------------------------------------------------------*/
 void autonomous(void) {
-    // no
+    canSelectAuton = false;
+
+    // drive forward 7 inches
+    Holodrive.driveFor(7, vex::distanceUnits::in, 0, 50, vex::velocityUnits::pct);
+
+    // drive back 4 inches
+    Holodrive.driveFor(4, vex::distanceUnits::in, 0, -50, vex::velocityUnits::pct);
+
+    // need to rewrite for distance
+    /*
+    Drive(true, 1000);//drive forward until you reach the first cube
+    
+    Claw.spinFor(forward, 90, degrees, Vel, velocityUnits::pct);//close claw 90 degrees so that way it is holding the cube
+
+    ArmMotors.rotateTo(90, degrees, Vel, velocityUnits::pct);//lift claw up to the height of 4 cubes plus the one that the claw is holding
+
+    Drive(true, 357); //drive to where the cube that we are holding is directly above the 4 cube stack
+
+    Claw.spinFor(reverse, 850, msec, Vel, velocityUnits::pct);//drop the cube that is being held down onto the stack
+
+    ArmMotors.rotateTo(-90, degrees, Vel, velocityUnits::pct);//drop claw down to the level of the 1st cube on the bottom of the stack
+
+    Claw.spinFor(forward, 90, degrees, Vel, velocityUnits::pct);//close claw
+
+    ArmMotors.rotateTo(45, degrees, Vel, velocityUnits::pct);//lift up the claw by half a cube distance
+
+    Drivetrain.turnFor(90, degrees, Vel, velocityUnits::pct);//turn robot 90 degrees left
+
+    Strafe(false, 1000);//drive left until the robot reaches the wall
+
+    Drive(true, 714);//drive forward until the robot is right in front of the goal
+
+    ArmMotors.rotateTo(-45, degrees, Vel, velocityUnits::pct);//lower claw to where the cubes are down on the ground
+   
+    Claw.spinFor(forward, 90, degrees, Vel, velocityUnits::pct);//release the claw
+    
+    Drive(false, 714);  //back up
+    */
 }
 
 // This is code to display the team number
@@ -315,71 +286,71 @@ void H1(int x, int y){
 }
 
 void H2(int x, int y){
-    hbar(x, y + BAR_GAP*2 + BAR_LENGTH); // H2
+    hbar(x, y + BAR_GAP * 2 + BAR_LENGTH); // H2
 }
 
 void H3(int x, int y){
-    hbar(x, y + BAR_GAP*4 + BAR_LENGTH*2); // H3
+    hbar(x, y + BAR_GAP * 4 + BAR_LENGTH * 2); // H3
 }
 
 void V1(int x, int y){
-    vbar(x-BAR_GAP, y+BAR_GAP); // V1    
+    vbar(x - BAR_GAP, y + BAR_GAP); // V1    
 }
 
 void V2(int x, int y){
-    vbar(x + BAR_LENGTH + BAR_GAP, y+BAR_GAP); // V2
+    vbar(x + BAR_LENGTH + BAR_GAP, y + BAR_GAP); // V2
 }
 
 void V3(int x, int y){
-    vbar(x-BAR_GAP, y + BAR_GAP*3 + BAR_LENGTH); // V3
+    vbar(x - BAR_GAP, y + BAR_GAP * 3 + BAR_LENGTH); // V3
 }
 
 void V4(int x, int y){
-    vbar(x + BAR_LENGTH + BAR_GAP, y + BAR_GAP*3 + BAR_LENGTH); // V4   
+    vbar(x + BAR_LENGTH + BAR_GAP, y + BAR_GAP * 3 + BAR_LENGTH); // V4   
 }
 
 void one(int x, int y){
-    V2(x,y); V4(x,y);
+    V2(x, y); V4(x, y);
 }
 
 void two(int x, int y){
-    H1(x,y); H2(x,y); H3(x,y);    
-    V2(x,y); V3(x,y);
+    H1(x, y); H2(x, y); H3(x, y);    
+    V2(x, y); V3(x, y);
 }
 
 void three(int x, int y){
-    H1(x,y); H2(x,y); H3(x,y);
-    V2(x,y); V4(x,y);
+    H1(x, y); H2(x, y); H3(x, y);
+    V2(x, y); V4(x, y);
 }
 
 void four(int x, int y){
-    H2(x,y);
-    V1(x,y); V2(x,y); V4(x,y);
+    H2(x, y);
+    V1(x, y); V2(x, y); V4(x, y);
 }
 
 void five(int x, int y){
-    H1(x,y); H2(x,y); H3(x,y);
-    V1(x,y); V4(x,y);
+    H1(x, y); H2(x, y); H3(x, y);
+    V1(x, y); V4(x, y);
 }
 
 void six(int x, int y){
-    H1(x,y); H2(x,y); H3(x,y);
-    V1(x,y); V3(x,y); V4(x,y);
+    H1(x, y); H2(x, y); H3(x, y);
+    V1(x, y); V3(x, y); V4(x, y);
 }
 
 void seven(int x, int y){
-    H1(x,y); 
-    V2(x,y); V4(x,y);
+    H1(x, y); 
+    V2(x, y); V4(x, y);
 }
 
 void eight(int x, int y){
-    H1(x,y); H2(x,y); H3(x,y);
-    V1(x,y); V2(x,y); V3(x,y); V4(x,y);
+    H1(x, y); H2(x, y); H3(x, y);
+    V1(x, y); V2(x, y); V3(x, y); V4(x, y);
 }
 
 void nine(int x, int y){
-    H1(x,y); H2(x,y); H3(x,y);
-    V1(x,y); V2(x,y); V4(x,y);
+    H1(x, y); H2(x, y); H3(x, y);
+    V1(x, y); V2(x, y); V4(x, y);
 }
 
 void drawNumbers() {
@@ -401,6 +372,98 @@ void drawNumbers() {
     V1(x, y); V2(x, y); V3(x, y); V4(x, y);
 }
 
+// 3d shit - wrote this pretty much just to show off
+
+int32_t cubeRed[][10] = {
+    // back
+    { -10,  10, -10, -10, -10, -10, -10, -10,  10, 0xee0000 },
+    { -10,  10, -10, -10, -10,  10, -10,  10,  10, 0xee0000 },
+    // front
+    {  10,  10, -10,  10, -10, -10,  10, -10,  10, 0xee0000 },
+    {  10,  10, -10,  10, -10,  10,  10,  10,  10, 0xee0000 },
+    // bottom
+    {  10, -10, -10, -10, -10, -10, -10,  10, -10, 0xee0000 },
+    {  10, -10, -10, -10,  10, -10,  10,  10, -10, 0xee0000 },
+    // top
+    {  10, -10,  10, -10, -10,  10, -10,  10,  10, 0xee0000 },
+    {  10, -10,  10, -10,  10,  10,  10,  10,  10, 0xee0000 },
+    // left
+    { -10, -10,  10, -10, -10, -10,  10, -10, -10, 0xee0000 },
+    { -10, -10,  10,  10, -10, -10,  10, -10,  10, 0xee0000 },
+    // right
+    { -10,  10,  10, -10,  10, -10,  10,  10, -10, 0xee0000 },
+    { -10,  10,  10,  10,  10, -10,  10,  10,  10, 0xee0000 }
+};
+
+int32_t cubeBlue[][10] = {
+    // back
+    { -10,  10, -10, -10, -10, -10, -10, -10,  10, 0x0000ee },
+    { -10,  10, -10, -10, -10,  10, -10,  10,  10, 0x0000ee },
+    // front
+    {  10,  10, -10,  10, -10, -10,  10, -10,  10, 0x0000ee },
+    {  10,  10, -10,  10, -10,  10,  10,  10,  10, 0x0000ee },
+    // bottom
+    {  10, -10, -10, -10, -10, -10, -10,  10, -10, 0x0000ee },
+    {  10, -10, -10, -10,  10, -10,  10,  10, -10, 0x0000ee },
+    // top
+    {  10, -10,  10, -10, -10,  10, -10,  10,  10, 0x0000ee },
+    {  10, -10,  10, -10,  10,  10,  10,  10,  10, 0x0000ee },
+    // left
+    { -10, -10,  10, -10, -10, -10,  10, -10, -10, 0x0000ee },
+    { -10, -10,  10,  10, -10, -10,  10, -10,  10, 0x0000ee },
+    // right
+    { -10,  10,  10, -10,  10, -10,  10,  10, -10, 0x0000ee },
+    { -10,  10,  10,  10,  10, -10,  10,  10,  10, 0x0000ee }
+};
+
+void draw3d(int xRot, int yRot) {
+    ThreeDee.reset();
+    ThreeDee.setCam(-50, 0, 0, 0, 0);
+    if (checkAutonomousType(AUTONOMOUS_ALLY) == ALLY_RED)
+        ThreeDee.drawModel(cubeRed, 12, 0, 0, 4, xRot, yRot);
+    else if (checkAutonomousType(AUTONOMOUS_ALLY) == ALLY_BLUE)
+        ThreeDee.drawModel(cubeBlue, 12, 0, 0, 4, xRot, yRot);
+    ThreeDee.drawText(0, 224, 1, 0xffffff, "CUBEINATOR");
+    ThreeDee.draw(Brain.Screen);
+    //Brain.Screen.waitForRefresh(); // fucking fix this already
+    vex::task::sleep(1000 / 60);
+}
+
+int screenUpdate() {
+    int xRot = 0;
+    int yRot = 0;
+
+    while (true) {
+        int rSteps = rand() % 50 + 10;
+        switch (rand() % 4) {
+            case 0:
+                for (int j = 0; j < rSteps; j ++) {
+                    xRot ++;
+                    draw3d(xRot, yRot);
+                }
+                break;
+            case 1:
+                for (int j = 0; j < rSteps; j ++) {
+                    xRot --;
+                    draw3d(xRot, yRot);
+                }
+                break;
+            case 2:
+                for (int j = 0; j < rSteps; j ++) {
+                    yRot ++;
+                    draw3d(xRot, yRot);
+                }
+                break;
+            case 3:
+                for (int j = 0; j < rSteps; j ++) {
+                    yRot --;
+                    draw3d(xRot, yRot);
+                }
+                break;
+        }
+    }
+}
+
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
 /*                              User Control Task                             */
@@ -420,21 +483,32 @@ void drawNumbers() {
 
 int frontLeftSpeed = 0, frontRightSpeed = 0, backLeftSpeed = 0, backRightSpeed = 0;
 
+double filterInput(double input) {
+    //if (std::abs(input) <= CONTROL_DEAD_ZONE) return 0;
+    input = input * input * input / 10000;
+    input = input * input * input / 10000;
+    return input * input * input / 10000;
+}
+
 void adjustMotors(int xMove, int yMove, int wMove) {
-    int flMove = yMove + xMove + wMove;
-    int frMove = -yMove + xMove + wMove;
-    int blMove = yMove - xMove + wMove;
-    int brMove = -yMove - xMove + wMove;
+    //double height2 = std::abs(filterInput(1750 - LiftMotor.rotation(vex::rotationUnits::deg))) / 1750;
+    //Brain.Screen.printAt(0, 16, "%f", height2);
+    double height = 1;
+
+    int flMove = (yMove + xMove + wMove) * height;
+    int frMove = (-yMove + xMove + wMove) * height;
+    int blMove = (yMove - xMove + wMove) * height;
+    int brMove = (-yMove - xMove + wMove) * height;
 
     frontLeftSpeed += MAX_MOTOR_SPEED_CHANGE * (frontLeftSpeed < flMove ? 1 : -1);
     frontRightSpeed += MAX_MOTOR_SPEED_CHANGE * (frontRightSpeed < frMove ? 1 : -1);
     backLeftSpeed += MAX_MOTOR_SPEED_CHANGE * (backLeftSpeed < blMove ? 1 : -1);
     backRightSpeed += MAX_MOTOR_SPEED_CHANGE * (backRightSpeed < brMove ? 1 : -1);
 
-    FrontLeftMotor.spin(vex::directionType::fwd, frontLeftSpeed, vex::velocityUnits::pct);
-    FrontRightMotor.spin(vex::directionType::fwd, frontRightSpeed, vex::velocityUnits::pct);
-    BackLeftMotor.spin(vex::directionType::fwd, backLeftSpeed, vex::velocityUnits::pct);
-    BackRightMotor.spin(vex::directionType::fwd, backRightSpeed, vex::velocityUnits::pct);
+    FrontLeftMotor.spin(vex::directionType::fwd, std::min(frontLeftSpeed, 100), vex::velocityUnits::pct);
+    FrontRightMotor.spin(vex::directionType::fwd, std::min(frontRightSpeed, 100), vex::velocityUnits::pct);
+    BackLeftMotor.spin(vex::directionType::fwd, std::min(backLeftSpeed, 100), vex::velocityUnits::pct);
+    BackRightMotor.spin(vex::directionType::fwd, std::min(backRightSpeed, 100), vex::velocityUnits::pct);
 }
 
 int monitor() {
@@ -446,15 +520,12 @@ int monitor() {
     }
 }
 
-int filterInput(int input) {
-    if (abs(input) <= CONTROL_DEAD_ZONE) return 0;
-    return input * input * input / 10000;
-}
-
 void usercontrol(void) {
-    vex::task monitorTask(monitor);
-    
-    drawNumbers();
+    canSelectAuton = false;
+    //drawNumbers();
+
+    //vex::task monitorTask(monitor, vex::task::taskPriorityLow);
+    vex::task screenUpdateTask(screenUpdate, vex::task::taskPrioritylow);
     
     while (true) {
         // weeeeeeeeeeeeeeeeeeeeeeeeeeee
@@ -470,14 +541,18 @@ void usercontrol(void) {
         }
 
         if (Controller1.ButtonL2.pressing() && !BottomLimit.pressing()) {
-            LiftMotor.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
+            LiftMotor.spin(vex::directionType::fwd, 50, vex::velocityUnits::pct);
         } else if (Controller1.ButtonL1.pressing() && !TopLimit.pressing()) {
-            LiftMotor.spin(vex::directionType::fwd, -100, vex::velocityUnits::pct);
+            LiftMotor.spin(vex::directionType::fwd, -50, vex::velocityUnits::pct);
         } else if (Controller1.ButtonA.pressing()) {
-            Holodrive.drive(0, 1, 0, 100, vex::velocityUnits::pct);
+            //Holodrive.driveFor(24, vex::distanceUnits::in, 0, 50, vex::velocityUnits::pct);
+            autonomous();
         } else {
             LiftMotor.stop();
         }
+
+        if (BottomLimit.pressing() && !Controller1.ButtonL1.pressing())
+            LiftMotor.resetRotation();
 
         vex::task::sleep(TASK_REFRESH_SPEED);
     }
@@ -504,7 +579,7 @@ int main() {
     displayButtonControls(0, false);
 
     // Prevent main from exiting with an infinite loop.
-    while(1) {
+    while (1) {
         vex::task::sleep(100); // Sleep the task for a short amount of time to prevent wasted resources.
     }
 }
