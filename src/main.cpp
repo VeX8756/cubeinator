@@ -474,8 +474,8 @@ int screenUpdate() {
 /*  You must modify the code to add your own robot specific commands here.    */
 /*----------------------------------------------------------------------------*/
 
-#define CONTROL_DEAD_ZONE 5
-#define MAX_MOTOR_SPEED_CHANGE 25
+#define CONTROL_DEAD_ZONE 5 // THIS IS HARMLESS, BUT SUPERCEDED BY THE CUBIC FILTER
+#define MAX_MOTOR_SPEED_CHANGE 25 // THIS SHOULD BE A LOWER NUMBER, LIKE 5
 #define TASK_REFRESH_SPEED 20
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -500,6 +500,12 @@ void adjustMotors(int xMove, int yMove, int wMove) {
     int blMove = (yMove - xMove + wMove) * height;
     int brMove = (-yMove - xMove + wMove) * height;
 
+    // THIS SLEW CODE IS JUST AS BROKEN AS IT WAS LAST YEAR.  THINK IT THROUGH!   
+    // IT ONLY GENERATES INCREMENTAL VALUES OF 25, AND CHANGES EVERY REFRESH BY +/- 25
+    // IF THE DRIVER HOLDS A STEADY 77 (OR EVEN 75.0001) SIGNAL, THE OUTPUT WILL TOGGLE BETWEEN 75 AND 100 AT REFRESH RATE.
+    // THIS IS VERY HARD TO DRIVE! YOU WANT TO CHECK IF THE REQUESTED CHANGE IS GRATER THAN THE SLEW, 
+    // THEN EITHER PASS THROUGH THE CHANGE, OR REDUCE THAT CHANGE TO THE OLD VALUE +/- THE SLEW. 
+    // 
     frontLeftSpeed += MAX_MOTOR_SPEED_CHANGE * (frontLeftSpeed < flMove ? 1 : -1);
     frontRightSpeed += MAX_MOTOR_SPEED_CHANGE * (frontRightSpeed < frMove ? 1 : -1);
     backLeftSpeed += MAX_MOTOR_SPEED_CHANGE * (backLeftSpeed < blMove ? 1 : -1);
